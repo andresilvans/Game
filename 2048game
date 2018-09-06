@@ -1,0 +1,572 @@
+#include<iostream>
+#include<string>
+#include<ctime>//给srand()预备
+#include<conio.h>
+using namespace std;
+
+int a[4][4];//2048的数组
+int b[4][4];//提供给它撤销功能
+int score = 0;//记录积分
+int score_ex = 0;//为撤销而存在
+
+// 出现2/4的概率
+int getRand()
+{
+	int i = rand() % 10;
+	if (i < 1)
+		return 4;
+	else
+		return 2;
+}
+
+// 移动之后新数字产生的位置（就是随机数）
+int getRandAddr()//返回一个0-15的数
+{
+	return rand() % 16;
+}
+
+bool isSafeAddr(int addr)//由上一个函数产生的位置不一定安全，判断一下
+{
+	if (a[addr / 4][addr % 4] == 0)//当这个位置是0，也就是空才安全
+		return true;
+	return false;//都没安全当然不安全拉
+}
+
+// 判断游戏是否结束（game over）
+bool isEnd()
+{
+	// 1、只要有空位，就是还在继续，还不能结束
+	for (int i = 0; i < 4; i++)
+	{
+		for (int j = 0; j < 4; j++)
+		{
+			if (a[i][j] == 0)
+				return false;
+		}
+	}
+
+	// 2、当游戏盘满了之后，需要判断上下左右相邻的是否还能合并
+	for (int i = 0; i < 4; i++)   // 行
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			if (a[i][j] == a[i][j + 1])
+				return false;
+		}
+	}
+	for (int i = 0; i < 4; i++)   // 列
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			if (a[j][i] == a[j+1][i])
+				return false;
+		}
+	}
+	return true;
+}
+
+// 初始化
+void init()
+{
+	cout << "rule:\n\t1.w/s/a/d for direction\n\t2.r to restart \n\t3.u to 返回一步（不能连续用）\n\t4.e to exit\n";
+	for (int i = 0; i < 4; i++)
+	{
+		for (int j = 0; j < 4; j++)
+		{
+			a[i][j] = 0;
+			b[i][j] = 0;
+		}
+	}
+	score = 0;
+	score_ex = 0;
+	srand(time(NULL));//如果随机数种子不改一下，每次玩的都一样……
+	int addr = getRandAddr();
+	a[addr / 4][addr % 4] = getRand();
+}
+
+
+void init2()//这个只是一个障碍，想要4障碍自己写一下吧
+{
+	cout << "rule:\n\t1.w/s/a/d for direction\n\t2.r to restart \n\t3.u to 返回一步（不能连续用）\n\t4.e to exit\n";
+	for (int i = 0; i < 4; i++)
+	{
+		for (int j = 0; j < 4; j++)
+		{
+			a[i][j] = 0;
+			b[i][j] = 0;
+		}
+	}
+	score = 0;
+	score_ex = 0;
+	srand(time(NULL));
+	int addr = getRandAddr();
+	a[addr / 4][addr % 4] = getRand();
+	addr = getRandAddr();
+	while (!isSafeAddr(addr))
+	{
+		addr = getRandAddr();
+	}
+
+	a[addr / 4][addr % 4] = -1;
+}
+
+
+void display()//打印一下
+{
+	char D = char(127);//障碍物的样子，我也不知道用啥好
+	for (int i = 0; i < 4; i++)
+	{
+		cout << "\t";
+		for (int j = 0; j < 4; j++)
+		{
+			if (a[i][j] == 0)//每次都是0眼都花了
+			{
+				cout << ".\t";
+				continue;
+			}
+			if (a[i][j] == -1 || a[i][j] == -2 || a[i][j] == -3 || a[i][j] == -4)//遇到障碍物
+			{
+				cout << D << "\t";
+				continue;
+			}
+			cout << a[i][j] << "\t";
+		}
+		cout << "\n\n";
+	}
+	cout << "score: " << score << "\n\n";
+	cout << "\t" << "Next:";
+}
+
+void isW()//0往下靠拢
+{
+	for (int i = 0; i < 4; i++)//排0
+	{
+		//感觉这个和冒泡类似，不过只将0往下冒
+		//这儿采用的是大数往上浮
+		//最上面的一格不考虑
+		if (a[1][i] != 0)//第二行
+		{
+			if (a[0][i] == 0)
+			{
+				a[0][i] = a[1][i];
+				a[1][i] = 0;
+			}
+		}
+		if (a[2][i] != 0)//第三行
+		{
+			for (int j = 0; j < 2; j++)
+			{
+				if (a[j][i] == 0)
+				{
+					a[j][i] = a[2][i];
+					a[2][i] = 0;
+					break;
+					/*这儿要解释一下为什么找到一个就够，
+					而且从最上面开找。
+					假设1{0，2，4，8}，当2浮动后，0就会往下一位，由于我已经从第一行开写，所以不会存在有0存留在上面。
+					假设2{0，0，2，4}，这个假设说明了这个for循环要从0开始的原因，不然2只会和第二个0作交换，形成{0，2，4，0}。*/
+				}
+			}
+		}
+		if (a[3][i] != 0)//第四行
+		{
+			for (int j = 0; j < 3; j++)
+			{
+				if (a[j][i] == 0)
+				{
+					a[j][i] = a[3][i];
+					a[3][i] = 0;
+					break;
+				}
+			}
+		}
+	}
+	//排0结束，下面开始合并并算积分
+	for (int i = 0; i < 4; i++)
+	{
+		int flag = 3;
+		//找出列中最后一个非零的
+		for (int j = 3; j >= 0; j--)
+		{
+			if (a[j][i] != 0)
+			{
+				break;
+			}
+			flag--;
+		}
+		if (flag == 0)//只有第一行非零
+			continue;//也就是只有一个数，根本不能合并，直接跑下一行
+		if (flag == 1)
+		{//有两个数，判断一下能否合并就好
+			if (a[0][i] == a[1][i])
+			{
+				a[0][i] += a[0][i];//不用*2是为了省时，没去学移位，这儿移位最好吧
+				a[1][i] = 0;//合并了就置0
+				score += a[0][i];
+				continue;
+			}
+			continue;
+		}
+		if (flag == 2)
+		{
+			if (a[0][i] == a[1][i])
+			{
+				a[0][i] += a[0][i];
+				a[1][i] = a[2][i];//这儿要注意不能立马置0，而是把下一个数先移上来
+				a[2][i] = 0;
+				score += a[0][i];
+				continue;
+			}
+			if (a[1][i] == a[2][i])
+			{
+				a[1][i] += a[1][i];
+				a[2][i] = 0;
+				score += a[1][i];
+				continue;
+			}
+			continue;
+		}
+
+		if (flag == 3)
+		{
+			if (a[0][i] == a[1][i])
+			{//判断1、2两行是否相同
+				a[0][i] += a[0][i];
+				a[1][i] = a[2][i];
+				a[2][i] = a[3][i];
+				a[3][i] = 0;
+				score += a[0][i];
+				//有必要进一步判断剩下的两行能否合并，例{2，2，4，4}，之所以后面不是a[2][i]与a[3][i]是因为上面刚做过移动
+				if (a[1][i] == a[2][i])
+				{
+					a[1][i] += a[1][i];
+					a[2][i] = 0;
+					score += a[1][i];
+				}
+				continue;//移动完就去下一行吧
+			}
+			else
+			{
+				if (a[1][i] == a[2][i])
+				{//当前两行不同，就判断2、3两行是否相同
+					a[1][i] += a[1][i];
+					a[2][i] = a[3][i];
+					a[3][i] = 0;
+					score += a[1][i];
+					continue;
+				}
+
+				if (a[2][i] == a[3][i])
+				{//跑到这儿就意味着1、2 ，2、3不相同，判断3、4是否相同
+					a[2][i] += a[2][i];
+					a[3][i] = 0;
+					score += a[2][i];
+					continue;
+				}
+				continue;
+			}
+		}
+		/*if (flag == 3)
+		{
+		if (a[2][i] == a[3][i])
+		{
+		a[2][i] += a[2][i];
+		a[3][i] = 0;
+		score += a[2][i];
+		if (a[0][i] == a[1][i])
+		{
+		a[0][i] += a[0][i];
+		a[1][i] = a[2][i];
+		a[2][i] = 0;
+		score += a[0][i];
+		}
+		continue;
+		}
+		else
+		{
+		if (a[1][i] == a[2][i])
+		{
+		a[1][i] += a[1][i];
+		a[2][i] = a[3][i];
+		a[3][i] = 0;
+		score += a[1][i];
+		continue;
+		}
+		if (a[0][i] == a[1][i])
+		{
+		a[0][i] += a[0][i];
+		a[1][i] = a[2][i];
+		a[2][i] = a[3][i];
+		a[3][1] = 0;
+		score += a[0][i];
+		continue;
+		}
+		continue;
+		}
+		}*/
+	}
+}
+
+
+void isS()//0往上靠拢
+{
+	for (int i = 0; i < 4; i++)//排0
+	{
+		//感觉这个和冒泡类似，不过只将0往下冒
+		//这儿采用的是大数往上浮
+		//最下面的一格不考虑
+		if (a[1][i] != 0)//第二行
+		{
+			if (a[0][i] == 0)
+			{
+				a[0][i] = a[1][i];
+				a[1][i] = 0;
+			}
+		}
+		if (a[2][i] != 0)//第三行
+		{
+			for (int j = 0; j < 2; j++)
+			{
+				if (a[j][i] == 0)
+				{
+					a[j][i] = a[2][i];
+					a[2][i] = 0;
+					break;
+					/*这儿要解释一下为什么找到一个就够，
+					而且从最上面开找。
+					假设1{0，2，4，8}，当2浮动后，0就会往下一位，由于我已经从第一行开写，所以不会存在有0存留在上面。
+					假设2{0，0，2，4}，这个假设说明了这个for循环要从0开始的原因，不然2只会和第二个0作交换，形成{0，2，4，0}。*/
+				}
+			}
+		}
+		if (a[0][i] != 0)//第一行
+		{
+			for (int j = 0; j < 3; j++)
+			{
+				if (a[j][i] == 0)
+				{
+					a[j][i] = a[3][i];
+					a[3][i] = 0;
+					break;
+				}
+			}
+		}
+	}
+	//排0结束，下面开始合并并算积分
+	for (int i = 0; i < 4; i++)
+	{
+		int flag = 3;
+		//找出列中最后一个非零的
+		for (int j = 3; j >= 0; j--)
+		{
+			if (a[j][i] != 0)
+			{
+				break;
+			}
+			flag--;
+		}
+		if (flag == 0)//只有第一行非零
+			continue;//也就是只有一个数，根本不能合并，直接跑下一行
+		if (flag == 1)
+		{//有两个数，判断一下能否合并就好
+			if (a[0][i] == a[1][i])
+			{
+				a[0][i] += a[0][i];//不用*2是为了省时，没去学移位，这儿移位最好吧
+				a[1][i] = 0;//合并了就置0
+				score += a[0][i];
+				continue;
+			}
+			continue;
+		}
+		if (flag == 2)
+		{
+			if (a[0][i] == a[1][i])
+			{
+				a[0][i] += a[0][i];
+				a[1][i] = a[2][i];//这儿要注意不能立马置0，而是把下一个数先移上来
+				a[2][i] = 0;
+				score += a[0][i];
+				continue;
+			}
+			if (a[1][i] == a[2][i])
+			{
+				a[1][i] += a[1][i];
+				a[2][i] = 0;
+				score += a[1][i];
+				continue;
+			}
+			continue;
+		}
+
+		if (flag == 3)
+		{
+			if (a[0][i] == a[1][i])
+			{//判断1、2两行是否相同
+				a[0][i] += a[0][i];
+				a[1][i] = a[2][i];
+				a[2][i] = a[3][i];
+				a[3][i] = 0;
+				score += a[0][i];
+				//有必要进一步判断剩下的两行能否合并，例{2，2，4，4}，之所以后面不是a[2][i]与a[3][i]是因为上面刚做过移动
+				if (a[1][i] == a[2][i])
+				{
+					a[1][i] += a[1][i];
+					a[2][i] = 0;
+					score += a[1][i];
+				}
+				continue;//移动完就去下一行吧
+			}
+			else
+			{
+				if (a[1][i] == a[2][i])
+				{//当前两行不同，就判断2、3两行是否相同
+					a[1][i] += a[1][i];
+					a[2][i] = a[3][i];
+					a[3][i] = 0;
+					score += a[1][i];
+					continue;
+				}
+
+				if (a[2][i] == a[3][i])
+				{//跑到这儿就意味着1、2 ，2、3不相同，判断3、4是否相同
+					a[2][i] += a[2][i];
+					a[3][i] = 0;
+					score += a[2][i];
+					continue;
+				}
+				continue;
+			}
+		}
+		/*if (flag == 3)
+		{
+		if (a[2][i] == a[3][i])
+		{
+		a[2][i] += a[2][i];
+		a[3][i] = 0;
+		score += a[2][i];
+		if (a[0][i] == a[1][i])
+		{
+		a[0][i] += a[0][i];
+		a[1][i] = a[2][i];
+		a[2][i] = 0;
+		score += a[0][i];
+		}
+		continue;
+		}
+		else
+		{
+		if (a[1][i] == a[2][i])
+		{
+		a[1][i] += a[1][i];
+		a[2][i] = a[3][i];
+		a[3][i] = 0;
+		score += a[1][i];
+		continue;
+		}
+		if (a[0][i] == a[1][i])
+		{
+		a[0][i] += a[0][i];
+		a[1][i] = a[2][i];
+		a[2][i] = a[3][i];
+		a[3][1] = 0;
+		score += a[0][i];
+		continue;
+		}
+		continue;
+		}
+		}*/
+	}
+}
+
+
+void game()
+{
+	string choose;
+	cout << "choose level: 1-normal   2-hard  3-BT:";//选择难度吧
+	while (cin >> choose)
+	{
+		if (choose[0] == '1')
+		{
+			init();
+			break;
+		}
+		if (choose[0] == '2')
+		{
+			init2();
+			break;
+		}
+		//if (choose[0] == '3')
+		//{
+		//	//init3(); 添加了四个障碍
+		//	break;
+		//}
+	}
+	while (1)
+	{
+		display();
+
+		if (isEnd())//判断你是否还能移动
+		{
+			string end;
+			cout << "\t\tGame over !\n";
+			cout << "\t\tYour Score is:" << score << endl;
+			cout << "input 'r' to restart other to exit.";
+			cin >> end;
+			if (end[0] == 'r')
+			{
+				system("cls");
+				game();
+			}
+			else
+			{
+				exit(0);
+			}
+		}
+
+		//cin >> choose;//原来用这个，每次输入w/a/s/d都要按下Enter
+		choose[0] = _getch();//这个按了w就会直接移动了，百度的conio.h _getch();
+		if (choose[0] == 'u')
+		{
+			//reWrite();//just one step ,就是将备份的数组写回进来
+			system("cls");
+			continue;
+		}
+
+		//copyRight();//既然你都不撤回了，先将现在的保存一下
+		switch (choose[0])
+		{
+		case 'w':isW(); break;//上下左右
+		//case 'a':isA(); break;
+		//case 's':isS(); break;
+		//case 'd':isD(); break;
+		case 'e':exit(0);
+		case 'r':{system("cls"); game(); break; }
+		default:
+		{
+			system("cls");
+			cout << "Error input,Try angin.\n";
+			continue;
+		}
+		}
+		//if (isSame())
+		//{//如果相同就不产生新数字了，算法里面没描述，玩过都知道~
+		//	system("cls");//因为每次都会display()还是应该清除一下
+		//	continue;
+		//}
+
+		int addr = getRandAddr();
+		while (!isSafeAddr(addr))//一直找到安全位置为止
+		{
+			addr = getRandAddr();
+		}
+		a[addr / 4][addr % 4] = getRand();//产生新数了。
+		system("cls");
+
+	}
+}
+
+int main()
+{
+	game();
+	return 0;
+}
